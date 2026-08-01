@@ -90,6 +90,58 @@ body {
   animation: cardPop 260ms ease-out;
 }
 
+.deck-draw {
+  animation: deckPulse 680ms cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+
+.deck-sweep {
+  opacity: 0;
+  background: linear-gradient(
+    110deg,
+    transparent 8%,
+    rgba(255, 255, 255, 0.1) 22%,
+    rgba(255, 255, 255, 0.6) 48%,
+    rgba(255, 255, 255, 0.12) 66%,
+    transparent 82%
+  );
+  transform: translateX(-140%) skewX(-18deg);
+}
+
+.deck-draw .deck-sweep {
+  animation: deckSweep 620ms ease-out;
+}
+
+.reveal-stage {
+  position: relative;
+  overflow: hidden;
+  perspective: 1200px;
+}
+
+.reveal-stage::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(circle at center, rgba(103, 232, 249, 0.12), transparent 62%);
+  pointer-events: none;
+}
+
+.card-reveal {
+  position: relative;
+  overflow: hidden;
+  transform-style: preserve-3d;
+  animation: cardReveal 720ms cubic-bezier(0.18, 0.88, 0.22, 1);
+}
+
+.card-reveal-face {
+  opacity: 0.75;
+}
+
+.card-reveal-glow {
+  background:
+    radial-gradient(circle at top, rgba(255, 255, 255, 0.32), transparent 42%),
+    linear-gradient(135deg, rgba(34, 211, 238, 0.18), transparent 55%);
+}
+
 @keyframes turnPulse {
   0% {
     transform: translateZ(0) scale(1);
@@ -109,5 +161,57 @@ body {
   100% {
     opacity: 1;
     transform: translateY(0) scale(1);
+  }
+}
+
+@keyframes deckPulse {
+  0% {
+    transform: translateY(0) scale(1);
+    box-shadow: 0 20px 35px rgba(2, 6, 23, 0.26);
+  }
+  32% {
+    transform: translateY(-4px) scale(1.015) rotateZ(-1deg);
+    box-shadow:
+      0 0 0 1px rgba(255, 255, 255, 0.22),
+      0 16px 45px rgba(34, 211, 238, 0.25);
+  }
+  100% {
+    transform: translateY(0) scale(1);
+    box-shadow: 0 20px 35px rgba(2, 6, 23, 0.26);
+  }
+}
+
+@keyframes deckSweep {
+  0% {
+    opacity: 0;
+    transform: translateX(-145%) skewX(-18deg);
+  }
+  18% {
+    opacity: 0.9;
+  }
+  100% {
+    opacity: 0;
+    transform: translateX(145%) skewX(-18deg);
+  }
+}
+
+@keyframes cardReveal {
+  0% {
+    opacity: 0;
+    transform: rotateY(-88deg) translateX(-18px) scale(0.88);
+    filter: blur(4px) brightness(1.28);
+  }
+  45% {
+    opacity: 1;
+    transform: rotateY(10deg) translateX(3px) scale(1.04);
+    filter: blur(0) brightness(1.08);
+  }
+  70% {
+    transform: rotateY(-6deg) translateX(0) scale(0.99);
+  }
+  100% {
+    opacity: 1;
+    transform: rotateY(0deg) translateX(0) scale(1);
+    filter: blur(0) brightness(1);
   }
 }

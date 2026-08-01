@@ -2,6 +2,8 @@ import { useEffect, useMemo, useState } from 'react'
 import confetti from 'canvas-confetti'
 import {
   ChevronRight,
+  CircleHelp,
+  Home,
   Plus,
   Shuffle,
   Undo2,
@@ -21,7 +23,7 @@ const COLOR_CHOICES = [
   '#a855f7',
 ]
 
-const TOTAL_CARDS = 120
+const TOTAL_CARDS = 125
 
 const sortPlayersByName = (players) => {
   return [...players].sort((a, b) => a.name.localeCompare(b.name))
@@ -58,7 +60,27 @@ const createInitialDeck = () => {
     label: '+2',
   }))
 
-  return shuffleDeck([...numberCards, ...plusOneCards, ...plusTwoCards])
+  const plusThreeCards = Array.from({ length: 3 }, (_, index) => ({
+    id: `p3-${index + 1}`,
+    type: 'plus3',
+    value: '+3',
+    label: '+3',
+  }))
+
+  const plusFiveCards = Array.from({ length: 2 }, (_, index) => ({
+    id: `p5-${index + 1}`,
+    type: 'plus5',
+    value: '+5',
+    label: '+5',
+  }))
+
+  return shuffleDeck([
+    ...numberCards,
+    ...plusOneCards,
+    ...plusTwoCards,
+    ...plusThreeCards,
+    ...plusFiveCards,
+  ])
 }
 
 const randomBrightHex = (reservedColors) => {
@@ -129,6 +151,7 @@ const getWinner = (players) => {
 }
 
 function App() {
+  const [activeView, setActiveView] = useState('home')
   const [players, setPlayers] = useState([])
   const [gridClaims, setGridClaims] = useState({})
   const [deck, setDeck] = useState(() => createInitialDeck())
@@ -138,6 +161,8 @@ function App() {
   const [hasStarted, setHasStarted] = useState(false)
   const [history, setHistory] = useState([])
   const [isAddPlayerOpen, setIsAddPlayerOpen] = useState(false)
+  const [isHowToPlayOpen, setIsHowToPlayOpen] = useState(false)
+  const [isRevealingCard, setIsRevealingCard] = useState(false)
   const [winner, setWinner] = useState(null)
   const [cardAnimationTick, setCardAnimationTick] = useState(0)
 
@@ -177,6 +202,18 @@ function App() {
     return () => clearTimeout(timer)
   }, [winner])
 
+  useEffect(() => {
+    if (!isRevealingCard) {
+      return
+    }
+
+    const timer = setTimeout(() => {
+      setIsRevealingCard(false)
+    }, 700)
+
+    return () => clearTimeout(timer)
+  }, [isRevealingCard])
+
   const makeSnapshot = () => {
     return {
       players: players.map((player) => ({ ...player })),
@@ -192,6 +229,7 @@ function App() {
 
   const canDraw = players.length >= 2 && deck.length > 0 && !winner
   const isShuffleDisabled = hasStarted
+  const isGameView = activeView === 'game'
 
   const handleResetGame = () => {
     setPlayers([])
@@ -230,6 +268,8 @@ function App() {
       return
     }
 
+    setIsRevealingCard(true)
+
     const snapshot = makeSnapshot()
     setHistory((previous) => [...previous.slice(-4), snapshot])
 
@@ -251,8 +291,14 @@ function App() {
       }
     }
 
-    const grantTurns =
-      drawnCard.type === 'plus1' ? 1 : drawnCard.type === 'plus2' ? 2 : 0
+    const grantTurnsByType = {
+      plus1: 1,
+      plus2: 2,
+      plus3: 3,
+      plus5: 5,
+    }
+
+    const grantTurns = grantTurnsByType[drawnCard.type] ?? 0
 
     let nextBonusTurns = bonusTurnsRemaining + grantTurns
     let nextPlayerId = actingPlayerId
@@ -301,189 +347,326 @@ function App() {
     setCardAnimationTick((value) => value + 1)
   }
 
+  const handleOpenGame = () => {
+    setActiveView('game')
+  }
+
+  const handleGoHome = () => {
+    setIsAddPlayerOpen(false)
+    setIsHowToPlayOpen(false)
+    setActiveView('home')
+  }
+
   return (
     <div className="min-h-screen bg-[radial-gradient(circle_at_20%_0%,rgba(14,165,233,0.35)_0,transparent_42%),radial-gradient(circle_at_80%_90%,rgba(234,179,8,0.22)_0,transparent_36%),linear-gradient(145deg,#031525_0%,#05213b_45%,#06223f_100%)] text-slate-50">
       <header className="fixed inset-x-0 top-0 z-30 border-b border-white/20 bg-white/10 px-4 py-3 shadow-xl backdrop-blur-md md:px-8">
         <div className="mx-auto flex w-full max-w-7xl items-center justify-between">
-          <div className="w-[128px]" aria-hidden="true" />
+          <div className="w-[128px] md:w-[164px]">
+            <button
+              type="button"
+              onClick={handleGoHome}
+              className="glass-button inline-flex items-center justify-center gap-2 px-3 md:px-4"
+            >
+              <Home className="h-4 w-4" />
+              Home
+            </button>
+          </div>
           <h1 className="text-center font-heading text-2xl tracking-wide text-white md:text-4xl">
-            Number Game
+            {isGameView ? 'Number Game' : 'Game Hub'}
           </h1>
-          <button
-            type="button"
-            onClick={handleResetGame}
-            className="glass-button inline-flex w-[128px] items-center justify-center gap-2"
-          >
-            <RefreshCcw className="h-4 w-4" />
-            Reset Game
-          </button>
+          <div className="flex min-w-[128px] justify-end gap-2 md:min-w-[164px]">
+            {isGameView ? (
+              <>
+                <button
+                  type="button"
+                  onClick={() => setIsHowToPlayOpen(true)}
+                  className="glass-button inline-flex items-center justify-center gap-2 px-3 md:px-4"
+                >
+                  <CircleHelp className="h-4 w-4" />
+                  <span className="hidden sm:inline">How to Play</span>
+                  <span className="sm:hidden">How</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={handleResetGame}
+                  className="glass-button inline-flex items-center justify-center gap-2 px-3 md:px-4"
+                >
+                  <RefreshCcw className="h-4 w-4" />
+                  <span className="hidden sm:inline">Reset Game</span>
+                  <span className="sm:hidden">Reset</span>
+                </button>
+              </>
+            ) : null}
+          </div>
         </div>
       </header>
 
-      <main className="mx-auto flex w-full max-w-7xl flex-col gap-5 px-3 pb-8 pt-24 md:px-6 lg:gap-6 lg:px-8">
-        <div className="grid gap-5 lg:grid-cols-[1.35fr_0.85fr]">
-          <section className="space-y-5">
-            <div className="glass-panel p-3 sm:p-4 md:p-5">
-              <div className="mb-2 flex items-center justify-between px-1">
-                <h2 className="font-heading text-lg text-white/95 md:text-xl">Grid Board</h2>
-                <span className="text-xs font-medium uppercase tracking-wider text-cyan-100/80 md:text-sm">
-                  Claimed {Object.keys(gridClaims).length}/100
-                </span>
-              </div>
-
-              <div className="grid grid-cols-10 gap-1.5">
-                {Array.from({ length: 100 }, (_, index) => {
-                  const row = Math.floor(index / 10)
-                  const col = index % 10
-                  const number = row + 1 + col * 10
-                  const playerId = gridClaims[number]
-                  const player = players.find((entry) => entry.id === playerId)
-
-                  return (
-                    <div
-                      key={number}
-                      className="group relative aspect-square overflow-hidden rounded-lg border border-white/20 bg-white/10 text-[10px] font-semibold text-white/90 shadow-md transition-all duration-200 ease-in-out hover:scale-105 hover:bg-white/20 sm:text-xs"
-                      style={{
-                        backgroundColor: player?.color ?? undefined,
-                      }}
-                    >
-                      <div className="absolute inset-0 cell-shine" />
-                      <span className="relative z-10 grid h-full place-items-center drop-shadow-sm">
-                        {number}
-                      </span>
-                    </div>
-                  )
-                })}
-              </div>
-            </div>
-
-            <div className="grid gap-4 md:grid-cols-[220px_1fr]">
-              <button
-                type="button"
-                onClick={handleDrawCard}
-                disabled={!canDraw}
-                className="group relative mx-auto h-48 w-full max-w-[230px] overflow-hidden rounded-2xl border border-white/25 bg-white/10 p-3 text-left shadow-2xl backdrop-blur-md transition-all duration-200 ease-in-out hover:scale-[1.03] hover:bg-white/20 disabled:cursor-not-allowed disabled:opacity-55"
-              >
-                <div className="pointer-events-none absolute left-2 top-2 h-full w-full rounded-2xl border border-white/15 bg-gradient-to-b from-white/20 to-transparent" />
-                <div className="pointer-events-none absolute left-4 top-4 h-full w-full rounded-2xl border border-white/15 bg-gradient-to-b from-white/15 to-transparent" />
-                <div className="relative z-10 flex h-full flex-col justify-between rounded-xl border border-white/25 bg-white/10 p-4">
-                  <p className="font-heading text-2xl text-white">Cards Deck</p>
-                  <p className="text-sm font-medium text-cyan-50/90">Click to open</p>
-                </div>
-              </button>
-
-              <div className="glass-panel flex min-h-48 flex-col justify-between p-4">
-                <div className="flex items-center justify-between gap-3">
-                  <h3 className="font-heading text-lg text-white">Current Card</h3>
-                  <p className="text-sm font-semibold text-cyan-100/90">
-                    Cards Left: {deck.length}/{TOTAL_CARDS}
-                  </p>
-                </div>
-
-                <div className="my-4 flex min-h-20 items-center justify-center">
-                  {currentCard ? (
-                    <div
-                      key={`${currentCard.id}-${cardAnimationTick}`}
-                      className="card-pop rounded-2xl border border-white/30 bg-white/20 px-8 py-5 text-3xl font-extrabold tracking-wide text-white shadow-[0_12px_35px_rgba(15,23,42,0.35)]"
-                    >
-                      {currentCard.label}
-                    </div>
-                  ) : (
-                    <span className="text-sm text-cyan-100/80">Draw a card to reveal it</span>
-                  )}
-                </div>
-
-                <div className="flex flex-wrap items-center gap-3">
-                  <button
-                    type="button"
-                    onClick={handleShuffle}
-                    disabled={isShuffleDisabled}
-                    className="glass-button inline-flex items-center gap-2 disabled:pointer-events-none disabled:opacity-45"
-                  >
-                    <Shuffle className="h-4 w-4" />
-                    Shuffle
-                  </button>
-                  <span className="text-xs text-white/80">
-                    Shuffle is available only before the first draw.
+      <main className="mx-auto flex w-full max-w-7xl flex-col gap-5 px-3 pb-8 pt-24 md:px-5 lg:gap-6 lg:px-8">
+        {isGameView ? (
+          <div className="grid gap-4 md:grid-cols-[minmax(0,1fr)_320px] md:items-start xl:grid-cols-[minmax(0,1fr)_360px]">
+            <section className="space-y-5">
+              <div className="flex justify-start">
+                <div className="inline-flex max-w-full items-center gap-3 rounded-full border border-cyan-200/25 bg-[linear-gradient(135deg,rgba(34,211,238,0.18),rgba(59,130,246,0.1),rgba(255,255,255,0.05))] px-4 py-2 text-sm text-cyan-50 shadow-[0_0_18px_rgba(34,211,238,0.12)] backdrop-blur-md">
+                  <span className="h-2.5 w-2.5 shrink-0 rounded-full bg-cyan-300 shadow-[0_0_12px_rgba(103,232,249,0.9)]" />
+                  <span className="truncate font-medium text-white/95">
+                    {activePlayer ? `Turn of ${activePlayer.name}` : 'Add at least two players to start'}
                   </span>
                 </div>
               </div>
-            </div>
-          </section>
 
-          <section className="flex flex-col gap-4">
-            <div className="glass-panel min-h-[540px] flex-1 p-4 md:p-5">
-              <div className="mb-3 flex items-center justify-between">
-                <h2 className="font-heading text-2xl text-white">Player Score</h2>
-                <span className="text-xs uppercase tracking-widest text-cyan-100/80">
-                  {sortedPlayers.length} players
-                </span>
-              </div>
+              <div className="grid gap-4 xl:grid-cols-[240px_minmax(0,1fr)]">
+                <button
+                  type="button"
+                  onClick={handleDrawCard}
+                  disabled={!canDraw}
+                  className={`group relative min-h-44 w-full overflow-hidden rounded-2xl border border-white/25 bg-white/10 p-3 text-left shadow-2xl backdrop-blur-md transition-all duration-200 ease-in-out hover:scale-[1.02] hover:bg-white/20 disabled:cursor-not-allowed disabled:opacity-55 xl:min-h-52 ${
+                    isRevealingCard ? 'deck-draw' : ''
+                  }`}
+                >
+                  <div className="pointer-events-none absolute inset-0 deck-sweep" />
+                  <div className="pointer-events-none absolute left-2 top-2 h-full w-full rounded-2xl border border-white/15 bg-gradient-to-b from-white/20 to-transparent" />
+                  <div className="pointer-events-none absolute left-4 top-4 h-full w-full rounded-2xl border border-white/15 bg-gradient-to-b from-white/15 to-transparent" />
+                  <div className="relative z-10 flex h-full flex-col justify-between rounded-xl border border-white/25 bg-white/10 p-4">
+                    <div>
+                      <p className="font-heading text-2xl text-white">Cards Deck</p>
+                      <p className="mt-1 text-sm text-cyan-50/85">Primary action stays above the board.</p>
+                    </div>
+                    <div className="space-y-2">
+                      <p className="text-sm font-medium text-cyan-50/90">Click to open</p>
+                      <p className="text-xs uppercase tracking-[0.18em] text-white/70">
+                        {canDraw ? 'Ready to draw' : 'Waiting for players'}
+                      </p>
+                    </div>
+                  </div>
+                </button>
 
-              <div className="space-y-2.5">
-                {sortedPlayers.map((player) => {
-                  const isActive = player.id === activePlayer?.id && !winner && players.length >= 2
-
-                  return (
-                    <div
-                      key={player.id}
-                      className={`rounded-xl border px-3 py-2.5 transition-all duration-200 ease-in-out ${
-                        isActive
-                          ? 'active-player-glow border-cyan-300/70 bg-cyan-300/15 shadow-[0_0_16px_rgba(6,182,212,0.5)]'
-                          : 'border-white/20 bg-white/5 hover:bg-white/10'
-                      }`}
-                    >
-                      <div className="flex items-center justify-between gap-2">
-                        <div className="flex items-center gap-2">
-                          <span
-                            className="h-3.5 w-3.5 rounded-full border border-white/70"
-                            style={{ backgroundColor: player.color }}
-                          />
-                          <span className="font-medium text-white">{player.name}</span>
-                          {isActive ? (
-                            <span className="inline-flex items-center gap-0.5 text-cyan-100">
-                              <ChevronRight className="h-4 w-4" />
-                              Turn
-                            </span>
-                          ) : null}
-                        </div>
-                        <span className="text-lg font-bold text-white">{player.score}</span>
+                <div className="glass-panel p-4 md:p-5">
+                  <div className="flex flex-col gap-4">
+                    <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                      <div>
+                        <h2 className="font-heading text-xl text-white md:text-2xl">Current Card</h2>
+                        <p className="mt-1 text-sm text-cyan-100/85">
+                          Draw from the deck, then check the board below.
+                        </p>
+                      </div>
+                      <div className="rounded-xl border border-white/20 bg-white/8 px-3 py-2 text-sm font-semibold text-cyan-100/90">
+                        Cards Left: {deck.length}/{TOTAL_CARDS}
                       </div>
                     </div>
-                  )
-                })}
 
-                {!sortedPlayers.length ? (
-                  <p className="rounded-lg border border-white/20 bg-white/5 p-3 text-sm text-white/85">
-                    Add players to begin. Minimum 2 players are required.
-                  </p>
-                ) : null}
+                    <div className="grid gap-3 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-end">
+                      <div className="reveal-stage flex min-h-24 items-center justify-center rounded-2xl border border-white/20 bg-slate-950/18 px-4 py-5">
+                        {currentCard ? (
+                          <div
+                            key={`${currentCard.id}-${cardAnimationTick}`}
+                            className="card-reveal rounded-2xl border border-white/30 bg-white/20 px-8 py-5 text-3xl font-extrabold tracking-wide text-white shadow-[0_12px_35px_rgba(15,23,42,0.35)]"
+                          >
+                            <div className="card-reveal-face absolute inset-0 rounded-2xl bg-[linear-gradient(145deg,rgba(255,255,255,0.34),rgba(255,255,255,0.08))]" />
+                            <div className="card-reveal-glow absolute inset-0 rounded-2xl" />
+                            <span className="relative z-10">{currentCard.label}</span>
+                          </div>
+                        ) : (
+                          <span className="text-sm text-cyan-100/80">Draw a card to reveal it</span>
+                        )}
+                      </div>
+
+                      <button
+                        type="button"
+                        onClick={handleShuffle}
+                        disabled={isShuffleDisabled}
+                        className="glass-button inline-flex items-center justify-center gap-2 whitespace-nowrap disabled:pointer-events-none disabled:opacity-45"
+                      >
+                        <Shuffle className="h-4 w-4" />
+                        Shuffle
+                      </button>
+                    </div>
+
+                    <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-white/15 bg-white/5 px-3 py-2.5 text-xs text-white/80">
+                      <span>Shuffle is available only before the first draw.</span>
+                      <span className="rounded-full border border-cyan-200/25 bg-cyan-300/10 px-2.5 py-1 text-cyan-100">
+                        {activePlayer ? `${activePlayer.name} is up` : 'Add players to begin'}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <div className="glass-panel p-3 sm:p-4 md:p-5">
+                <div className="mb-3 flex items-center justify-between gap-3 px-1">
+                  <div>
+                    <h2 className="font-heading text-lg text-white/95 md:text-xl">Grid Board</h2>
+                    <p className="mt-1 text-xs text-cyan-100/80 md:text-sm">
+                      Claimed cells lock instantly to the current player color.
+                    </p>
+                  </div>
+                  <span className="rounded-full border border-white/20 bg-white/10 px-3 py-1 text-xs font-medium uppercase tracking-wider text-cyan-100/80 md:text-sm">
+                    Claimed {Object.keys(gridClaims).length}/100
+                  </span>
+                </div>
+
+                <div className="grid grid-cols-10 gap-1 sm:gap-1.5">
+                  {Array.from({ length: 100 }, (_, index) => {
+                    const row = Math.floor(index / 10)
+                    const col = index % 10
+                    const number = row + 1 + col * 10
+                    const playerId = gridClaims[number]
+                    const player = players.find((entry) => entry.id === playerId)
+
+                    return (
+                      <div
+                        key={number}
+                        className="group relative aspect-square overflow-hidden rounded-md border border-white/20 bg-white/10 text-[10px] font-semibold text-white/90 shadow-md transition-all duration-200 ease-in-out hover:z-10 hover:scale-105 hover:bg-white/20 sm:rounded-lg sm:text-xs"
+                        style={{
+                          backgroundColor: player?.color ?? undefined,
+                        }}
+                      >
+                        <div className="absolute inset-0 cell-shine" />
+                        <span className="relative z-10 grid h-full place-items-center drop-shadow-sm">
+                          {number}
+                        </span>
+                      </div>
+                    )
+                  })}
+                </div>
+              </div>
+            </section>
+
+            <section className="flex flex-col gap-4 md:sticky md:top-24">
+              <div className="glass-panel min-h-[420px] flex-1 p-4 md:max-h-[calc(100svh-13rem)] md:overflow-auto md:p-5">
+                <div className="mb-3 flex items-center justify-between">
+                  <h2 className="font-heading text-2xl text-white">Player Score</h2>
+                  <span className="text-xs uppercase tracking-widest text-cyan-100/80">
+                    {sortedPlayers.length} players
+                  </span>
+                </div>
+
+                <div className="space-y-2.5">
+                  {sortedPlayers.map((player) => {
+                    const isActive =
+                      player.id === activePlayer?.id && !winner && players.length >= 2
+
+                    return (
+                      <div
+                        key={player.id}
+                        className={`rounded-xl border px-3 py-2.5 transition-all duration-200 ease-in-out ${
+                          isActive
+                            ? 'active-player-glow border-cyan-300/70 bg-cyan-300/15 shadow-[0_0_16px_rgba(6,182,212,0.5)]'
+                            : 'border-white/20 bg-white/5 hover:bg-white/10'
+                        }`}
+                      >
+                        <div className="flex items-center justify-between gap-2">
+                          <div className="flex items-center gap-2">
+                            <span
+                              className="h-3.5 w-3.5 rounded-full border border-white/70"
+                              style={{ backgroundColor: player.color }}
+                            />
+                            <span className="font-medium text-white">{player.name}</span>
+                            {isActive ? (
+                              <span className="inline-flex items-center gap-0.5 text-cyan-100">
+                                <ChevronRight className="h-4 w-4" />
+                                Turn
+                              </span>
+                            ) : null}
+                          </div>
+                          <span className="text-lg font-bold text-white">{player.score}</span>
+                        </div>
+                      </div>
+                    )
+                  })}
+
+                  {!sortedPlayers.length ? (
+                    <p className="rounded-lg border border-white/20 bg-white/5 p-3 text-sm text-white/85">
+                      Add players to begin. Minimum 2 players are required.
+                    </p>
+                  ) : null}
+                </div>
+              </div>
+
+              <div className="glass-panel flex flex-wrap items-center justify-between gap-3 p-4">
+                <button
+                  type="button"
+                  onClick={() => setIsAddPlayerOpen(true)}
+                  disabled={players.length >= 30}
+                  className="glass-button inline-flex items-center gap-2 disabled:cursor-not-allowed disabled:opacity-45"
+                >
+                  <Plus className="h-4 w-4" />
+                  Add Player
+                </button>
+
+                <button
+                  type="button"
+                  onClick={handleUndo}
+                  disabled={!history.length}
+                  className="glass-button inline-flex items-center gap-2 disabled:cursor-not-allowed disabled:opacity-45"
+                >
+                  <Undo2 className="h-4 w-4" />
+                  Undo
+                </button>
+              </div>
+            </section>
+          </div>
+        ) : (
+          <section className="grid min-h-[calc(100svh-10rem)] place-items-center py-4">
+            <div className="w-full max-w-6xl space-y-6">
+              <div className="mx-auto max-w-3xl text-center">
+                <p className="text-sm font-semibold uppercase tracking-[0.28em] text-cyan-200/80">
+                  Multi-Game Hub
+                </p>
+                <h2 className="mt-3 font-heading text-4xl text-white md:text-6xl">
+                  Launch one game now and grow the library later.
+                </h2>
+                <p className="mt-4 text-base leading-7 text-cyan-50/78 md:text-lg">
+                  This home screen is structured for multiple future games, with clear entry cards,
+                  room for categories, and a consistent glossy dashboard feel.
+                </p>
+              </div>
+
+              <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+                <button
+                  type="button"
+                  onClick={handleOpenGame}
+                  className="glass-panel group relative overflow-hidden p-5 text-left transition-all duration-200 ease-in-out hover:scale-[1.02] hover:bg-white/12"
+                >
+                  <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_right,rgba(34,211,238,0.18),transparent_42%)] opacity-90" />
+                  <div className="relative z-10 flex h-full min-h-60 flex-col justify-between gap-5">
+                    <div>
+                      <span className="rounded-full border border-cyan-200/30 bg-cyan-300/10 px-3 py-1 text-xs font-semibold uppercase tracking-[0.18em] text-cyan-100">
+                        Available Now
+                      </span>
+                      <h3 className="mt-4 font-heading text-3xl text-white">Number Game</h3>
+                      <p className="mt-3 max-w-md text-sm leading-6 text-cyan-50/82">
+                        A turn-based deck and grid game with special cards, player colors, undo
+                        history, and winner celebration.
+                      </p>
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <span className="text-sm font-medium text-white/85">Open game</span>
+                      <span className="inline-flex h-11 w-11 items-center justify-center rounded-full border border-white/20 bg-white/10 text-cyan-100 transition-all duration-200 group-hover:translate-x-1 group-hover:bg-white/20">
+                        <ChevronRight className="h-5 w-5" />
+                      </span>
+                    </div>
+                  </div>
+                </button>
+
+                <div className="glass-panel p-5 opacity-85">
+                  <div className="flex h-full min-h-60 flex-col justify-between gap-5 border border-dashed border-white/18 rounded-2xl bg-white/[0.03] p-5">
+                    <div>
+                      <span className="rounded-full border border-white/18 bg-white/8 px-3 py-1 text-xs font-semibold uppercase tracking-[0.18em] text-white/75">
+                        Future Slot
+                      </span>
+                      <h3 className="mt-4 font-heading text-2xl text-white/90">More Games Soon</h3>
+                      <p className="mt-3 text-sm leading-6 text-cyan-50/72">
+                        Use this space for upcoming titles, challenge modes, or category-based game
+                        collections.
+                      </p>
+                    </div>
+                    <p className="text-sm text-white/55">Designed to scale without changing the overall layout.</p>
+                  </div>
+                </div>
               </div>
             </div>
-
-            <div className="glass-panel flex items-center justify-between gap-3 p-4">
-              <button
-                type="button"
-                onClick={() => setIsAddPlayerOpen(true)}
-                disabled={players.length >= 30}
-                className="glass-button inline-flex items-center gap-2 disabled:cursor-not-allowed disabled:opacity-45"
-              >
-                <Plus className="h-4 w-4" />
-                Add Player
-              </button>
-
-              <button
-                type="button"
-                onClick={handleUndo}
-                disabled={!history.length}
-                className="glass-button inline-flex items-center gap-2 disabled:cursor-not-allowed disabled:opacity-45"
-              >
-                <Undo2 className="h-4 w-4" />
-                Undo
-              </button>
-            </div>
           </section>
-        </div>
+        )}
       </main>
 
       {isAddPlayerOpen ? (
@@ -506,6 +689,10 @@ function App() {
           }}
           players={players}
         />
+      ) : null}
+
+      {isHowToPlayOpen ? (
+        <HowToPlayModal onClose={() => setIsHowToPlayOpen(false)} />
       ) : null}
 
       {winner ? (
@@ -533,6 +720,82 @@ function App() {
           </div>
         </div>
       ) : null}
+    </div>
+  )
+}
+
+function HowToPlayModal({ onClose }) {
+  return (
+    <div className="fixed inset-0 z-50 grid place-items-center bg-slate-900/72 px-4 py-6 backdrop-blur-sm">
+      <div className="glass-panel w-full max-w-3xl overflow-hidden">
+        <div className="flex items-center justify-between border-b border-white/15 px-5 py-4 md:px-6">
+          <div>
+            <h3 className="font-heading text-2xl text-white md:text-3xl">How to Play</h3>
+            <p className="mt-1 text-sm text-cyan-100/85">
+              Quick rules for setup, turns, scoring, and ending the game.
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={onClose}
+            className="rounded-md border border-white/20 bg-white/10 p-1.5 text-white transition-all duration-200 hover:bg-white/20"
+            aria-label="Close how to play"
+          >
+            <X className="h-4 w-4" />
+          </button>
+        </div>
+
+        <div className="max-h-[70svh] space-y-4 overflow-auto px-5 py-5 md:px-6 md:py-6">
+          <section className="rounded-2xl border border-white/15 bg-white/6 p-4">
+            <h4 className="font-heading text-lg text-white">1. Setup</h4>
+            <ul className="mt-2 space-y-2 text-sm leading-6 text-white/88">
+              <li>Use Add Player to register between 2 and 30 players.</li>
+              <li>Each player needs a unique name and a unique color.</li>
+              <li>Players are always sorted alphabetically, and turn order follows that list.</li>
+            </ul>
+          </section>
+
+          <section className="rounded-2xl border border-white/15 bg-white/6 p-4">
+            <h4 className="font-heading text-lg text-white">2. Deck Rules</h4>
+            <ul className="mt-2 space-y-2 text-sm leading-6 text-white/88">
+              <li>The deck contains 125 cards total: numbers 1 to 100, ten +1 cards, ten +2 cards, three +3 cards, and two +5 cards.</li>
+              <li>Click the Cards Deck to draw exactly one card.</li>
+              <li>Once a card is drawn, it is removed from the deck for the rest of the game.</li>
+              <li>Shuffle is allowed only before the first draw. After the game starts, shuffle is locked.</li>
+            </ul>
+          </section>
+
+          <section className="rounded-2xl border border-white/15 bg-white/6 p-4">
+            <h4 className="font-heading text-lg text-white">3. What Each Card Does</h4>
+            <ul className="mt-2 space-y-2 text-sm leading-6 text-white/88">
+              <li>Number card: the matching grid cell is claimed in the active player’s color, and that player gains 1 point.</li>
+              <li>+1 card: the active player gains 1 point and gets 1 extra consecutive turn.</li>
+              <li>+2 card: the active player gains 1 point and gets 2 extra consecutive turns.</li>
+              <li>+3 card: the active player gains 1 point and gets 3 extra consecutive turns.</li>
+              <li>+5 card: the active player gains 1 point and gets 5 extra consecutive turns.</li>
+            </ul>
+          </section>
+
+          <section className="rounded-2xl border border-white/15 bg-white/6 p-4">
+            <h4 className="font-heading text-lg text-white">4. Turn Flow</h4>
+            <ul className="mt-2 space-y-2 text-sm leading-6 text-white/88">
+              <li>The highlighted player on the right is the current active player.</li>
+              <li>After a normal turn, play moves to the next player in alphabetical order.</li>
+              <li>If a player earns bonus turns from +1, +2, +3, or +5 cards, they continue drawing before the turn passes.</li>
+            </ul>
+          </section>
+
+          <section className="rounded-2xl border border-white/15 bg-white/6 p-4">
+            <h4 className="font-heading text-lg text-white">5. Undo and End Game</h4>
+            <ul className="mt-2 space-y-2 text-sm leading-6 text-white/88">
+              <li>Undo reverses exactly one draw at a time and restores deck, score, board state, and turn state.</li>
+              <li>The app keeps up to 5 undo steps in history.</li>
+              <li>The game ends when all 125 cards are drawn or the board is fully claimed.</li>
+              <li>The player with the highest score wins. Ties are shown as shared winners.</li>
+            </ul>
+          </section>
+        </div>
+      </div>
     </div>
   )
 }
